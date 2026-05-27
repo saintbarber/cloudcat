@@ -5,8 +5,8 @@ class Provider(ABC):
     @abstractmethod
     def search_offers(
         self,
-        gpu_name: str | None,
-        num_gpus: int,
+        gpu_names: list[str] | None,
+        num_gpus: int | None,
         limit: int,
     ) -> list[dict]: ...
 

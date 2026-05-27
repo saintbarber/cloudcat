@@ -9,11 +9,26 @@ class VastAIProvider(Provider):
 
     def search_offers(
         self,
-        gpu_name: str | None,
-        num_gpus: int,
+        gpu_names: list[str] | None,
+        num_gpus: int | None,
         limit: int,
     ) -> list[dict]:
-        raise NotImplementedError("search_offers is not implemented yet")
+        query_parts = ["gpu_arch=nvidia", "gpu_frac=1.0","reliability>=0.9","verified=true","rentable=true", "direct_port_count>=1", "disk_space>=20"]
+        # query_parts = []
+        
+        if gpu_names:
+            if len(gpu_names) == 1:
+                query_parts.append(f"gpu_name={gpu_names[0]}")
+            else:
+                query_parts.append(f"gpu_name in [{','.join(gpu_names)}]")
+        if num_gpus:
+            query_parts.append(f"num_gpus>={num_gpus}")
+        query = " ".join(query_parts)
+        order = "dph_total"
+        
+        offers = self.vast.search_offers(type="on-demand", query=query, order=order, limit=limit, no_default=True) or []
+        # print(offers)
+        return offers
 
     def create_instance(
         self,
