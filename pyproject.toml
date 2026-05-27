@@ -1,0 +1,20 @@
+[project]
+name = "cloudcat"
+version = "0.1.0"
+description = "Provider-agnostic CLI for managing cloud GPU instances for hashcat"
+requires-python = ">=3.10"
+dependencies = [
+    "vastai",
+    "python-dotenv",
+]
+
+[project.scripts]
+cloudcat = "cloudcat.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cloudcat*"]
