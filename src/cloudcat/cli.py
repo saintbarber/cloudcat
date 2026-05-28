@@ -1,5 +1,7 @@
 import argparse
 import os
+import sys
+import time
 
 from dotenv import load_dotenv
 
@@ -105,6 +107,28 @@ def _ssh_argv(host: str, port: int, key: str | None) -> list[str]:
     return argv
 
 
+# Even once the instance reports "running", the SSH daemon may need a few more
+# seconds to come up. Wait briefly so the auto-connect doesn't hit a refused port.
+SSH_GRACE_SECONDS = 7
+
+
+def _wait_for_sshd(seconds: int = SSH_GRACE_SECONDS) -> None:
+    frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    if not sys.stdout.isatty():
+        time.sleep(seconds)
+        return
+    deadline = time.time() + seconds
+    i = 0
+    while time.time() < deadline:
+        remaining = max(0, int(round(deadline - time.time())))
+        sys.stdout.write(f"\r {frames[i % len(frames)]} Waiting for SSH daemon ({remaining}s)")
+        sys.stdout.flush()
+        i += 1
+        time.sleep(0.1)
+    sys.stdout.write("\r\033[K")
+    sys.stdout.flush()
+
+
 def cmd_create(args: argparse.Namespace) -> None:
     config = load_config()
     template_hash = config.require_template_hash()
@@ -134,6 +158,7 @@ def cmd_create(args: argparse.Namespace) -> None:
     host, port = provider.get_ssh_info(instance_id)
     argv = _ssh_argv(host, port, ssh_key)
     print(f"Instance ready. Label: {label}  Instance ID: {instance_id}")
+    _wait_for_sshd()
     print(f"Connecting: {' '.join(argv)}")
     os.execvp("ssh", argv)
 
