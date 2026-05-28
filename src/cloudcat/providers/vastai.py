@@ -96,8 +96,6 @@ class VastAIProvider(Provider):
         info = self.vast.show_instance(id=int(instance_id)) or {}
         host = info.get("public_ipaddr")
         port = info.get("ports").get("22/tcp")[0].get('HostPort')
-        print(info)
-        exit()
         if not host or not port:
             raise SystemExit(
                 f"Instance {instance_id} has no SSH info yet "
