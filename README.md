@@ -1,22 +1,22 @@
 # crackyard
 
-A provider-agnostic CLI for renting cloud GPU instances and dropping straight into an SSH session — built for running [hashcat](https://hashcat.net/hashcat/) on someone else's hardware.
+A provider-agnostic CLI for renting cloud GPU instances and dropping straight into an SSH session - built for running [hashcat](https://hashcat.net/hashcat/) on someone else's hardware.
 
 crackyard manages the *infrastructure* lifecycle: it searches for available GPUs, rents one, waits for it to boot, and hands your terminal over to a live SSH session so you can run hashcat interactively. When you're done, it pulls your results back and tears the instance down so the meter stops running.
 
-It is **not** a hashcat wrapper. It doesn't parse, proxy, or stream hashcat — it just gets you a GPU and a shell.
+
+## Supported Providers
 
 [vast.ai](https://vast.ai) is the first (and currently only) supported provider, but the codebase is built around a provider abstraction so AWS, RunPod, and others can be added later.
 
 ## Features
 
 - **Search** available GPU offers, filtered by exact model or by GPU family, sorted cheapest-first.
-- **Create** an instance from an offer, auto-labelled, with boot polling and a live spinner — then `exec` straight into SSH.
+- **Create** an instance from an offer, then `exec` straight into SSH.
 - **List** your crackyard instances with uptime and running cost estimates.
-- **Reconnect** to a running instance by label at any time.
 - **Pull** files (potfiles, cracked hashes, etc.) off an instance.
 - **Destroy** an instance, optionally pulling files first, so billing stops cleanly.
-- **Native SSH** via `execvp` — full TTY, so hashcat's interactive controls (`s`, `p`, `q`, …) all work.
+- **SSH** full TTY, so hashcat's interactive controls (`s`, `p`, `q`, …) all work.
 
 ## Requirements
 
@@ -30,11 +30,11 @@ It is **not** a hashcat wrapper. It doesn't parse, proxy, or stream hashcat — 
 Clone the repo and install it (a virtualenv is recommended):
 
 ```bash
-git clone <your-repo-url> crackyard
+git clone https://github.com/saintbarber/crackyard.git
 cd crackyard
 
 python -m venv .venv
-source .venv/bin/activate        # fish: source .venv/bin/activate.fish
+source .venv/bin/activate
 
 pip install -e .
 ```
@@ -87,7 +87,7 @@ crackyard search --gpu-family rtx-40 --number 2 --limit 30
 | `--number` | Minimum number of GPUs per instance (default: 1) |
 | `--limit` | Max results to show (default: 20) |
 
-`--gpu` and `--gpu-family` are mutually exclusive. Results are filtered to verified, rentable, reliable offers with direct ports and adequate disk, and sorted by price ascending. Note the **Offer ID** column — you'll need it to create an instance.
+`--gpu` and `--gpu-family` are mutually exclusive. Results are filtered to verified, rentable, reliable offers with direct ports and adequate disk, and sorted by price ascending. Note the **Offer ID** column, you'll need it to create an instance.
 
 ### `create` — rent an instance and SSH in
 
@@ -163,11 +163,6 @@ crackyard ssh --label cy-a3f7
 crackyard destroy --label cy-a3f7 --pull /root/hashcat.potfile
 ```
 
-## What crackyard does *not* do
-
-- It's not a hashcat wrapper — it doesn't parse, proxy, or stream hashcat.
-- It doesn't upload files or manage wordlists/rules — do that yourself over SSH/SCP once connected.
-- It doesn't use serverless; it manages on-demand GPU instances with SSH access.
 
 ## Project layout
 
@@ -184,6 +179,3 @@ src/crackyard/
 
 Adding a new provider means implementing the `Provider` interface in `base.py` and registering it.
 
-## License
-
-See repository for license details.
