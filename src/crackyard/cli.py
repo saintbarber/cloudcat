@@ -3,9 +3,7 @@ import os
 import sys
 import time
 
-from dotenv import load_dotenv
-
-from crackyard.config import load_config
+from crackyard.config import Config, load_config
 from crackyard.providers import PROVIDER_NAMES, get_provider
 from crackyard.utils import estimated_cost, format_table, format_uptime, generate_label
 
@@ -22,16 +20,13 @@ GPU_FAMILIES: dict[str, list[str]] = {
 }
 
 
-def cmd_search(args: argparse.Namespace) -> None:
-    config = load_config()
-    provider = get_provider(args.provider, config)
+def cmd_search(args: argparse.Namespace, config: Config) -> None:
+    provider_name = args.provider or config.default_provider
+    provider = get_provider(provider_name, config)
 
-    # Default search values have been set
-    #   Show only verified
-    #   Show only rentable
-    #   Show only offers with at least 1 direct port
-    #   Show only offers with at least 20GB disk space
-    #   Show only offers with reliability >= 0.9
+    search_settings = config.provider_settings(provider_name).get("search") or {}
+    limit = args.limit if args.limit is not None else int(search_settings.get("limit", 20))
+    number = args.number if args.number is not None else search_settings.get("number", 1)
 
     if args.gpu_family:
         gpu_names = GPU_FAMILIES[args.gpu_family]
@@ -42,8 +37,8 @@ def cmd_search(args: argparse.Namespace) -> None:
 
     offers = provider.search_offers(
         gpu_names=gpu_names,
-        num_gpus=args.number,
-        limit=args.limit,
+        num_gpus=int(number),
+        limit=limit,
     )
 
     if not offers:
@@ -66,9 +61,9 @@ def cmd_search(args: argparse.Namespace) -> None:
     print(format_table(headers, rows))
 
 
-def cmd_list(args: argparse.Namespace) -> None:
-    config = load_config()
-    provider = get_provider(args.provider, config)
+def cmd_list(args: argparse.Namespace, config: Config) -> None:
+    provider_name = args.provider or config.default_provider
+    provider = get_provider(provider_name, config)
 
     label_prefix = None if args.all else "cy-"
     instances = provider.list_instances(label_prefix=label_prefix)
@@ -129,13 +124,13 @@ def _wait_for_sshd(seconds: int = SSH_GRACE_SECONDS) -> None:
     sys.stdout.flush()
 
 
-def cmd_create(args: argparse.Namespace) -> None:
-    config = load_config()
-    template_hash = config.require_template_hash()
+def cmd_create(args: argparse.Namespace, config: Config) -> None:
+    provider_name = args.provider or config.default_provider
+    template_hash = config.template_hash(provider_name)
     # Resolve the SSH key before spending money, so a misconfigured key
     # fails fast instead of after the instance has booted and started billing.
-    ssh_key = args.key or config.require_ssh_key()
-    provider = get_provider(args.provider, config)
+    ssh_key = args.key or config.ssh_key(provider_name)
+    provider = get_provider(provider_name, config)
 
     label = generate_label()
     print(f"Creating instance (offer={args.offer_id}, label={label})...")
@@ -171,9 +166,9 @@ def _find_instance_by_label(provider, label: str) -> dict:
     return match
 
 
-def cmd_pull(args: argparse.Namespace) -> None:
-    config = load_config()
-    provider = get_provider(args.provider, config)
+def cmd_pull(args: argparse.Namespace, config: Config) -> None:
+    provider_name = args.provider or config.default_provider
+    provider = get_provider(provider_name, config)
 
     match = _find_instance_by_label(provider, args.label)
     instance_id = str(match.get("id"))
@@ -182,9 +177,9 @@ def cmd_pull(args: argparse.Namespace) -> None:
     provider.pull_files(instance_id, args.paths, local_dir="./")
 
 
-def cmd_ssh(args: argparse.Namespace) -> None:
-    config = load_config()
-    provider = get_provider(args.provider, config)
+def cmd_ssh(args: argparse.Namespace, config: Config) -> None:
+    provider_name = args.provider or config.default_provider
+    provider = get_provider(provider_name, config)
 
     match = _find_instance_by_label(provider, args.label)
     instance_id = str(match.get("id"))
@@ -195,16 +190,16 @@ def cmd_ssh(args: argparse.Namespace) -> None:
             f"(status={status!r})."
         )
 
-    ssh_key = args.key or config.require_ssh_key()
+    ssh_key = args.key or config.ssh_key(provider_name)
     host, port = provider.get_ssh_info(instance_id)
     argv = _ssh_argv(host, port, ssh_key)
     print(f"Connecting: {' '.join(argv)}")
     os.execvp("ssh", argv)
 
 
-def cmd_destroy(args: argparse.Namespace) -> None:
-    config = load_config()
-    provider = get_provider(args.provider, config)
+def cmd_destroy(args: argparse.Namespace, config: Config) -> None:
+    provider_name = args.provider or config.default_provider
+    provider = get_provider(provider_name, config)
 
     match = _find_instance_by_label(provider, args.label)
     instance_id = str(match.get("id"))
@@ -229,8 +224,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--provider",
         choices=PROVIDER_NAMES,
-        default=os.environ.get("CRACKYARD_PROVIDER", "vastai"),
-        help="Cloud provider to use (default: vastai, or $CRACKYARD_PROVIDER)",
+        default=None,
+        help="Cloud provider to use (default: from config.toml, else vastai)",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -249,14 +244,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_search.add_argument(
         "--number",
-        default="1",
-        help="Min number of GPUs per instance (default: 1)",
+        type=int,
+        default=None,
+        help="Min number of GPUs per instance (default: from config.toml, else 1)",
     )
     p_search.add_argument(
         "--limit",
         type=int,
-        default=20,
-        help="Maximum number of results to show (default: 20)",
+        default=None,
+        help="Maximum number of results to show (default: from config.toml, else 20)",
     )
     p_search.set_defaults(func=cmd_search)
 
@@ -338,10 +334,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
-    load_dotenv()
     parser = build_parser()
     args = parser.parse_args(argv)
-    args.func(args)
+    config = load_config()
+    args.func(args, config)
 
 
 if __name__ == "__main__":

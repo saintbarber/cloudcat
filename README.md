@@ -1,13 +1,17 @@
 
 # crackyard
 
-A provider-agnostic CLI for renting cloud GPU instances and dropping straight into an SSH session - built for running [hashcat](https://hashcat.net/hashcat/) on someone else's hardware.
+A python CLI for renting cloud GPU instances and dropping straight into an SSH session - built for running [hashcat](https://hashcat.net/hashcat/).
 
 crackyard manages the *infrastructure* lifecycle: it searches for available GPUs, rents one, waits for it to boot, and hands your terminal over to a live SSH session so you can run hashcat interactively. When you're done, it pulls your results back and tears the instance down so the meter stops running.
 
+
+
 ## Supported Providers
 
-[vast.ai](https://vast.ai) is the first (and currently only) supported provider, but the codebase is built around a provider abstraction so AWS, RunPod, and others can be added later.
+- [vast.ai](https://vast.ai) 
+
+vast.ai is the first (and currently only) supported provider. Furture plans are to also include rundpod.io
 
 ## Features
 
@@ -20,14 +24,20 @@ crackyard manages the *infrastructure* lifecycle: it searches for available GPUs
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - A [vast.ai](https://vast.ai) account and API key
 - A vast.ai **template hash** (defines the Docker image/config your instances boot with)
 - An SSH private key registered with vast.ai
 
 ## Installation
 
-Clone the repo and install it (a virtualenv is recommended):
+The recommended way to install is with [pipx](https://pipx.pypa.io), which puts `crackyard` on your PATH in its own isolated environment:
+
+```bash
+pipx install git+https://github.com/saintbarber/crackyard.git
+```
+
+Or clone and install for development (a virtualenv is recommended):
 
 ```bash
 git clone https://github.com/saintbarber/crackyard.git
@@ -41,31 +51,71 @@ pip install -e .
 
 This installs the `crackyard` command. You can also run it without installing via `python -m crackyard`.
 
-## Configuration
+# Configuration
 
-crackyard reads its settings from a `.env` file in the project root. Copy the template and fill it in:
+## Vast.ai
 
+### SSH Keys
+
+First we need to create own own SSH key pair:
 ```bash
-cp .env.example .env
+ssh-keygen -t ed25519 -f ~/.ssh/vast.ai
 ```
 
-```dotenv
-# Your vast.ai API key
-VAST_API_KEY=your_api_key_here
+Next visit vast.ai [Keys](https://cloud.vast.ai/manage-keys/) section and click +New and paste your public key. 
 
-# The vast.ai template hash your instances boot from
-CRACKYARD_TEMPLATE_HASH=your_template_hash_here
+The path of the generated SSH private key goes in `config.toml` as `ssh_key` (see below).
 
-# Path to the SSH private key used to connect to instances
-CRACKYARD_SSH_KEY=~/.ssh/id_ed25519
+## Template 
 
-# Optional: which provider to use (default: vastai)
-# CRACKYARD_PROVIDER=vastai
+Vast.ai can use ready made templates 
+
+https://cloud.vast.ai?ref_id=216561&template_id=837eac2003b5dabd62c2037a2ec1c3b9
+
+## Config files
+
+crackyard stores its configuration under `$XDG_CONFIG_HOME/crackyard/` (i.e. `~/.config/crackyard/` by default), split into two files:
+
+- **`config.toml`** — settings and default values which you may want to tweak.
+- **`credentials`** — your API key. Keep it private.
+
+The first time you run any command, crackyard creates both files from templates and asks you to fill them in. Set your API key in `credentials` and your template hash in `config.toml`, then re-run.
+
+**`credentials`:**
+```toml
+[vastai]
+api_key = "your_api_key_here"
 ```
 
-If a required value is missing, crackyard tells you exactly what to set.
+**`config.toml`:**
+```toml
+provider = "vastai"            # default provider; override with --provider
 
-> **Note:** vast.ai requires an SSH key to connect to instances. Make sure the **public** half of `CRACKYARD_SSH_KEY` is added to your vast.ai account. You can override the key per-command with `--key`/`-i`.
+[vastai]
+template_hash = "your_template_hash_here"
+ssh_key = "~/.ssh/id_ed25519"
+
+[vastai.search]
+filters = [
+    "gpu_arch=nvidia",
+    "gpu_frac=1.0",
+    "reliability>=0.9",
+    "verified=true",
+    "rentable=true",
+    "direct_port_count>=1",
+    "disk_space>=20",
+]
+order = "dph_total"            # sort key (cheapest first)
+limit = 20                     # default for --limit
+number = 1                     # default for --number (min GPUs)
+
+[vastai.create]
+disk = 20                      # GB; keep >= the disk_space filter above
+```
+
+If a required value is missing, crackyard tells you exactly which file and key to set. The API key can also be supplied via the `VAST_API_KEY` environment variable, which takes precedence over the `credentials` file.
+
+> **Note:** vast.ai requires an SSH key to connect to instances. Make sure the **public** half of your `ssh_key` is added to your vast.ai account. You can override the key per-command with `--key`/`-i`.
 
 ## Usage
 
@@ -84,8 +134,8 @@ crackyard search --gpu-family rtx-40 --number 2 --limit 30
 |------|-------------|
 | `--gpu` | Exact GPU model name (e.g. `RTX_4090`, `A100_SXM4`) |
 | `--gpu-family` | A family of GPUs: `rtx-50`, `rtx-40`, `rtx-30`, `hopper`, `ampere-dc` |
-| `--number` | Minimum number of GPUs per instance (default: 1) |
-| `--limit` | Max results to show (default: 20) |
+| `--number` | Minimum number of GPUs per instance (default: `number` in `config.toml`, else 1) |
+| `--limit` | Max results to show (default: `limit` in `config.toml`, else 20) |
 
 `--gpu` and `--gpu-family` are mutually exclusive. Results are filtered to verified, rentable, reliable offers with direct ports and adequate disk, and sorted by price ascending. Note the **Offer ID** column, you'll need it to create an instance.
 
@@ -101,7 +151,7 @@ Generates a `cy-xxxx` label, rents the offer using your template hash, polls unt
 | Flag | Description |
 |------|-------------|
 | `--offer-id` | **(required)** Offer ID from `search` |
-| `--key`, `-i` | SSH private key path (defaults to `$CRACKYARD_SSH_KEY`) |
+| `--key`, `-i` | SSH private key path (defaults to `ssh_key` in `config.toml`) |
 
 ### `list` — see your instances
 
@@ -121,7 +171,7 @@ crackyard ssh --label cy-a3f7
 | Flag | Description |
 |------|-------------|
 | `--label` | **(required)** Instance label, e.g. `cy-a3f7` |
-| `--key`, `-i` | SSH private key path (defaults to `$CRACKYARD_SSH_KEY`) |
+| `--key`, `-i` | SSH private key path (defaults to `ssh_key` in `config.toml`) |
 
 ### `pull` — download files without destroying
 
@@ -170,7 +220,7 @@ crackyard destroy --label cy-a3f7 --pull /root/hashcat.potfile
 src/crackyard/
 ├── __main__.py          # python -m crackyard entry point
 ├── cli.py               # argparse setup + subcommand handlers
-├── config.py            # .env loading and validation
+├── config.py            # XDG TOML config + credentials loading and validation
 ├── utils.py             # label generation, table/uptime/cost formatting
 └── providers/
     ├── base.py          # abstract Provider interface

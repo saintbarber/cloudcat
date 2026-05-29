@@ -8,15 +8,29 @@ from crackyard.providers.base import Provider
 
 _BOOT_ERROR_STATES = {"exited", "unknown", "offline"}
 
+_DEFAULT_FILTERS = [
+    "gpu_arch=nvidia",
+    "gpu_frac=1.0",
+    "reliability>=0.9",
+    "verified=true",
+    "rentable=true",
+    "direct_port_count>=1",
+    "disk_space>=20",
+]
+_DEFAULT_ORDER = "dph_total"
+_DEFAULT_DISK = 20
+
 
 class VastAIProvider(Provider):
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, settings: dict | None = None):
         self.vast = VastAI(api_key=api_key)
+        settings = settings or {}
+        self.search_settings = settings.get("search") or {}
+        self.create_settings = settings.get("create") or {}
 
     def search_offers(self, gpu_names: list[str] | None, num_gpus: int | None, limit: int) -> list[dict]:
-        query_parts = ["gpu_arch=nvidia", "gpu_frac=1.0","reliability>=0.9","verified=true","rentable=true", "direct_port_count>=1", "disk_space>=20"]
-        # query_parts = []
-        
+        query_parts = list(self.search_settings.get("filters") or _DEFAULT_FILTERS)
+
         if gpu_names:
             if len(gpu_names) == 1:
                 query_parts.append(f"gpu_name={gpu_names[0]}")
@@ -25,19 +39,18 @@ class VastAIProvider(Provider):
         if num_gpus:
             query_parts.append(f"num_gpus>={num_gpus}")
         query = " ".join(query_parts)
-        order = "dph_total"
-        
+        order = self.search_settings.get("order") or _DEFAULT_ORDER
+
         offers = self.vast.search_offers(type="on-demand", query=query, order=order, limit=limit, no_default=True) or []
-        # print(offers)
         return offers
 
     def create_instance(self, offer_id: int, template_id: str, label: str) -> str:
-        
+
         result = self.vast.create_instance(
             id=offer_id,
             template_hash=template_id,
             label=label,
-            disk=20, # GB
+            disk=self.create_settings.get("disk", _DEFAULT_DISK),  # GB
         )
         if not result or not result.get("success"):
             raise SystemExit(f"create_instance failed: {result!r}")
