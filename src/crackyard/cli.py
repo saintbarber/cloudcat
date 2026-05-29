@@ -5,9 +5,9 @@ import time
 
 from dotenv import load_dotenv
 
-from cloudcat.config import load_config
-from cloudcat.providers import PROVIDER_NAMES, get_provider
-from cloudcat.utils import estimated_cost, format_table, format_uptime, generate_label
+from crackyard.config import load_config
+from crackyard.providers import PROVIDER_NAMES, get_provider
+from crackyard.utils import estimated_cost, format_table, format_uptime, generate_label
 
 BOOT_TIMEOUT_SECONDS = 600
 
@@ -70,7 +70,7 @@ def cmd_list(args: argparse.Namespace) -> None:
     config = load_config()
     provider = get_provider(args.provider, config)
 
-    label_prefix = None if args.all else "cc-"
+    label_prefix = None if args.all else "cy-"
     instances = provider.list_instances(label_prefix=label_prefix)
 
     if not instances:
@@ -78,7 +78,7 @@ def cmd_list(args: argparse.Namespace) -> None:
             print("No instances found.")
         else:
             print(
-                "No cloudcat instances found. "
+                "No crackyard instances found. "
                 "Use --all to show all vast.ai instances."
             )
         return
@@ -164,7 +164,7 @@ def cmd_create(args: argparse.Namespace) -> None:
 
 
 def _find_instance_by_label(provider, label: str) -> dict:
-    instances = provider.list_instances(label_prefix="cc-")
+    instances = provider.list_instances(label_prefix="cy-")
     match = next((i for i in instances if i.get("label") == label), None)
     if match is None:
         raise SystemExit(f"No instance found with label {label!r}.")
@@ -220,7 +220,7 @@ def cmd_destroy(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cloudcat",
+        prog="crackyard",
         description="Provider-agnostic CLI for managing cloud GPU instances for hashcat",
     )
 
@@ -229,8 +229,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--provider",
         choices=PROVIDER_NAMES,
-        default=os.environ.get("CLOUDCAT_PROVIDER", "vastai"),
-        help="Cloud provider to use (default: vastai, or $CLOUDCAT_PROVIDER)",
+        default=os.environ.get("CRACKYARD_PROVIDER", "vastai"),
+        help="Cloud provider to use (default: vastai, or $CRACKYARD_PROVIDER)",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -260,13 +260,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_search.set_defaults(func=cmd_search)
 
-    # List command - lists all isntances created by cloudcat (those with label starting with "cc-"), or all instances if --all is used
+    # List command - lists all isntances created by crackyard (those with label starting with "cy-"), or all instances if --all is used
 
-    p_list = subparsers.add_parser("list", help="List instances created by cloudcat")
+    p_list = subparsers.add_parser("list", help="List instances created by crackyard")
     p_list.add_argument(
         "--all",
         action="store_true",
-        help="Show all instances, not just those with the cc- prefix",
+        help="Show all instances, not just those with the cy- prefix",
     )
     p_list.set_defaults(func=cmd_list)
 
@@ -277,12 +277,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--offer-id",
         type=int,
         required=True,
-        help="Offer ID from `cloudcat search` output",
+        help="Offer ID from `crackyard search` output",
     )
     p_create.add_argument(
         "--key",
         "-i",
-        help="Path to SSH private key (passed to ssh -i). Defaults to $CLOUDCAT_SSH_KEY.",
+        help="Path to SSH private key (passed to ssh -i). Defaults to $CRACKYARD_SSH_KEY.",
     )
     p_create.set_defaults(func=cmd_create)
 
@@ -292,7 +292,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_destroy.add_argument(
         "--label",
         required=True,
-        help="Label of the instance to destroy (e.g. cc-a3f7)",
+        help="Label of the instance to destroy (e.g. cy-a3f7)",
     )
     p_destroy.add_argument(
         "--pull",
@@ -309,7 +309,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_pull.add_argument(
         "--label",
         required=True,
-        help="Label of the instance to pull from (e.g. cc-a3f7)",
+        help="Label of the instance to pull from (e.g. cy-a3f7)",
     )
     p_pull.add_argument(
         "paths",
@@ -325,12 +325,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_ssh.add_argument(
         "--label",
         required=True,
-        help="Label of the instance to connect to (e.g. cc-a3f7)",
+        help="Label of the instance to connect to (e.g. cy-a3f7)",
     )
     p_ssh.add_argument(
         "--key",
         "-i",
-        help="Path to SSH private key (passed to ssh -i). Defaults to $CLOUDCAT_SSH_KEY.",
+        help="Path to SSH private key (passed to ssh -i). Defaults to $CRACKYARD_SSH_KEY.",
     )
     p_ssh.set_defaults(func=cmd_ssh)
 

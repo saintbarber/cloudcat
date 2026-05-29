@@ -21,7 +21,7 @@ class Config:
     def require_template_hash(self) -> str:
         if not self.template_hash:
             raise SystemExit(
-                "CLOUDCAT_TEMPLATE_HASH is not set. Add it to .env "
+                "CRACKYARD_TEMPLATE_HASH is not set. Add it to .env "
                 "(see .env.example for the template)."
             )
         return self.template_hash
@@ -29,7 +29,7 @@ class Config:
     def require_ssh_key(self) -> str:
         if not self.ssh_key_path:
             raise SystemExit(
-                "No SSH private key configured. Set CLOUDCAT_SSH_KEY in .env "
+                "No SSH private key configured. Set CRACKYARD_SSH_KEY in .env "
                 "(see .env.example) or pass --key/-i."
             )
         return self.ssh_key_path
@@ -39,6 +39,6 @@ def load_config() -> Config:
     load_dotenv()
     return Config(
         vast_api_key=os.environ.get("VAST_API_KEY"),
-        template_hash=os.environ.get("CLOUDCAT_TEMPLATE_HASH"),
-        ssh_key_path=os.environ.get("CLOUDCAT_SSH_KEY"),
+        template_hash=os.environ.get("CRACKYARD_TEMPLATE_HASH"),
+        ssh_key_path=os.environ.get("CRACKYARD_SSH_KEY"),
     )

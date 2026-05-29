@@ -4,7 +4,7 @@ import time
 
 from vastai import VastAI
 
-from cloudcat.providers.base import Provider
+from crackyard.providers.base import Provider
 
 _BOOT_ERROR_STATES = {"exited", "unknown", "offline"}
 

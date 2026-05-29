@@ -3,7 +3,7 @@ import time
 
 
 def generate_label() -> str:
-    return f"cc-{secrets.token_hex(2)}"
+    return f"cy-{secrets.token_hex(2)}"
 
 
 def format_uptime(start_date: float | int | None) -> str:

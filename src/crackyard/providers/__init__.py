@@ -1,6 +1,6 @@
-from cloudcat.config import Config
-from cloudcat.providers.base import Provider
-from cloudcat.providers.vastai import VastAIProvider
+from crackyard.config import Config
+from crackyard.providers.base import Provider
+from crackyard.providers.vastai import VastAIProvider
 
 PROVIDER_NAMES = ["vastai"]
 
