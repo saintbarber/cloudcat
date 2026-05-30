@@ -53,31 +53,12 @@ This installs the `crackyard` command. You can also run it without installing vi
 
 # Configuration
 
-## Vast.ai
-
-### SSH Keys
-
-First we need to create own own SSH key pair:
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/vast.ai
-```
-
-Next visit vast.ai [Keys](https://cloud.vast.ai/manage-keys/) section and click +New and paste your public key. 
-
-The path of the generated SSH private key goes in `config.toml` as `ssh_key` (see below).
-
-## Template 
-
-Vast.ai can use ready made templates 
-
-https://cloud.vast.ai?ref_id=216561&template_id=837eac2003b5dabd62c2037a2ec1c3b9
-
 ## Config files
 
 crackyard stores its configuration under `$XDG_CONFIG_HOME/crackyard/` (i.e. `~/.config/crackyard/` by default), split into two files:
 
 - **`config.toml`** — settings and default values which you may want to tweak.
-- **`credentials`** — your API key. Keep it private.
+- **`credentials`** — your API keys. Keep it private.
 
 The first time you run any command, crackyard creates both files from templates and asks you to fill them in. Set your API key in `credentials` and your template hash in `config.toml`, then re-run.
 
@@ -113,11 +94,45 @@ number = 1                     # default for --number (min GPUs)
 disk = 20                      # GB; keep >= the disk_space filter above
 ```
 
-If a required value is missing, crackyard tells you exactly which file and key to set. The API key can also be supplied via the `VAST_API_KEY` environment variable, which takes precedence over the `credentials` file.
+If a required value is missing, crackyard tells you exactly which file and key to set.
 
 > **Note:** vast.ai requires an SSH key to connect to instances. Make sure the **public** half of your `ssh_key` is added to your vast.ai account. You can override the key per-command with `--key`/`-i`.
 
-## Usage
+## SSH Keys
+
+First we need to create own own SSH key pair:
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/vast.ai
+```
+
+## Vast.ai
+
+### API Key
+
+Visit vast.ai [Keys](https://cloud.vast.ai/manage-keys/) section and navigate to the API Keys tab.
+
+Create and copy the API key into the `~/.config/crackyard/credentials` file
+
+
+### Connecting SSH key
+
+Visit vast.ai [Keys](https://cloud.vast.ai/manage-keys/) section and click +New and paste your public key. 
+
+The path of the generated SSH private key goes in `config.toml` as `ssh_key` (see below).
+
+
+## Runpod.io
+
+#TODO
+
+## Template 
+
+Vast.ai can use ready made templates 
+
+https://cloud.vast.ai?ref_id=216561&template_id=837eac2003b5dabd62c2037a2ec1c3b9
+
+
+# Usage
 
 ```
 crackyard [--provider vastai] <command> [options]
@@ -212,20 +227,4 @@ crackyard ssh --label cy-a3f7
 # 4. Grab your results and shut it down
 crackyard destroy --label cy-a3f7 --pull /root/hashcat.potfile
 ```
-
-
-## Project layout
-
-```
-src/crackyard/
-├── __main__.py          # python -m crackyard entry point
-├── cli.py               # argparse setup + subcommand handlers
-├── config.py            # XDG TOML config + credentials loading and validation
-├── utils.py             # label generation, table/uptime/cost formatting
-└── providers/
-    ├── base.py          # abstract Provider interface
-    └── vastai.py        # vast.ai implementation
-```
-
-Adding a new provider means implementing the `Provider` interface in `base.py` and registering it.
 
