@@ -200,15 +200,44 @@ Downloads one or more remote paths into the current directory.
 
 ```bash
 crackyard destroy --label cy-a3f7
-crackyard destroy --label cy-a3f7 --pull /root/hashcat.potfile --pull /root/cracked.txt
+crackyard destroy --label cy-a3f7 --pull /root/hashcat.potfile /root/cracked.txt
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--label` | **(required)** Instance label |
-| `--pull` | Remote path to download before destroying (repeatable) |
+| `--pull` | One or more remote paths to download before destroying |
 
 If a file pull fails, crackyard warns but still destroys the instance — it won't leave a GPU running and billing.
+
+### `completion` — enable tab completion for your shell
+
+```bash
+crackyard completion bash    # prints a bash activation script
+crackyard completion zsh     # prints a zsh activation script
+crackyard completion fish    # prints a fish completion script
+```
+
+The command prints the script to stdout — you decide how to install it. Once active, tab-completing `--label` on `ssh`, `pull`, and `destroy` will offer your live `cy-...` instances (looked up from your provider).
+
+**bash** — append to `~/.bashrc`:
+```bash
+eval "$(crackyard completion bash)"
+```
+
+**zsh** — append to `~/.zshrc`:
+```bash
+eval "$(crackyard completion zsh)"
+```
+
+**fish** — write it once into the completions directory (no sourcing on every shell):
+```fish
+crackyard completion fish > ~/.config/fish/completions/crackyard.fish
+```
+
+Open a new shell (or `source` your rc file) and `crackyard ssh --label <TAB>` will list your instances.
+
+> Tab completion calls the provider API on each tab press, so expect a brief pause the first time. If your credentials aren't configured, completion silently returns nothing rather than spewing errors over your prompt.
 
 ## Typical workflow
 

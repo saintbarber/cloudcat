@@ -5,6 +5,7 @@ description = "Provider-agnostic CLI for managing cloud GPU instances for hashca
 requires-python = ">=3.11"
 dependencies = [
     "vastai",
+    "argcomplete",
 ]
 
 [project.scripts]

@@ -1,6 +1,8 @@
 import argparse
 import os
 
+import argcomplete
+
 from crackyard.config import Config, load_config
 from crackyard.providers import PROVIDER_NAMES, get_provider
 from crackyard.utils import (
@@ -165,11 +167,13 @@ def cmd_ssh(args: argparse.Namespace, config: Config) -> None:
 
 
 def cmd_destroy(args: argparse.Namespace, config: Config) -> None:
+
     provider_name = args.provider or config.provider
     provider = get_provider(provider_name, config)
 
     match = find_instance_by_label(provider, args.label)
     instance_id = str(match.get("id"))
+
 
     if args.pull:
         print(f"Pulling {len(args.pull)} file(s) from {args.label} ({instance_id})...")
@@ -178,6 +182,21 @@ def cmd_destroy(args: argparse.Namespace, config: Config) -> None:
     print(f"Destroying instance {args.label} ({instance_id})...")
     provider.destroy_instance(instance_id)
     print(f"Destroyed {args.label}.")
+
+
+def cmd_completion(args: argparse.Namespace, config: Config) -> None:
+    print(argcomplete.shellcode(["crackyard"], shell=args.shell))
+
+
+def label_completer(prefix: str, parsed_args: argparse.Namespace, **_kwargs) -> list[str]:
+    try:
+        config = load_config()
+        provider_name = getattr(parsed_args, "provider", None) or config.provider
+        provider = get_provider(provider_name, config)
+        instances = provider.list_instances(label_prefix="cy-")
+        return [i["label"] for i in instances if i.get("label", "").startswith(prefix)]
+    except Exception:
+        return []
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -256,10 +275,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--label",
         required=True,
         help="Label of the instance to destroy (e.g. cy-a3f7)",
-    )
+    ).completer = label_completer
     p_destroy.add_argument(
         "--pull",
-        action="append",
+        action="extend",
+        nargs="+",
         default=[],
         metavar="REMOTE_PATH",
         help="Remote file path to download before destroy (repeatable)",
@@ -273,9 +293,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--label",
         required=True,
         help="Label of the instance to pull from (e.g. cy-a3f7)",
-    )
+    ).completer = label_completer
     p_pull.add_argument(
         "paths",
+        action="extend",
         nargs="+",
         metavar="REMOTE_PATH",
         help="One or more remote file paths to download into the current directory",
@@ -289,7 +310,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--label",
         required=True,
         help="Label of the instance to connect to (e.g. cy-a3f7)",
-    )
+    ).completer = label_completer
     p_ssh.add_argument(
         "--key",
         "-i",
@@ -297,11 +318,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_ssh.set_defaults(func=cmd_ssh)
 
+    # Completion command - print a shell activation snippet for tab completion.
+
+    p_completion = subparsers.add_parser(
+        "completion",
+        help="Print a shell completion script (bash, zsh, or fish)",
+    )
+    p_completion.add_argument(
+        "shell",
+        choices=["bash", "zsh", "fish"],
+        help="Shell to emit the completion script for",
+    )
+    p_completion.set_defaults(func=cmd_completion)
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
+    argcomplete.autocomplete(parser)
     args = parser.parse_args(argv)
     config = load_config()
     args.func(args, config)
