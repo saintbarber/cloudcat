@@ -1,5 +1,7 @@
 import sys
 import time
+from urllib.parse import urlparse
+import subprocess
 
 from vastai import VastAI
 
@@ -28,6 +30,7 @@ class VastAIProvider(Provider):
         settings = settings or {}
         self.search_settings = settings.get("search") or {}
         self.create_settings = settings.get("create") or {}
+        self.ssh_key = settings.get("ssh_key") 
         # self._template_hash = settings.get("template_hash")
 
     def search_offers(self, gpu_names: list[str] | None, num_gpus: int | None, limit: int) -> list[dict]:
@@ -125,14 +128,41 @@ class VastAIProvider(Provider):
 
     def pull_files(self, instance_id: str, remote_paths: list[str], local_dir: str) -> None:
 
+        url = self.vast.scp_url(id=int(instance_id))
+        
+        if not url:
+          raise SystemExit(f"Instance {instance_id} has no SCP info yet.")
+    
+        parsed = urlparse(url)             # scp://root@ssh7.vast.ai:19586
+        user = parsed.username or "root"   # "root"
+        host = parsed.hostname             # "ssh7.vast.ai"
+        port = parsed.port                 # 19586
+
         for path in remote_paths:
-            src = f"{instance_id}:{path}"
-            dst = f"local:{local_dir}"
+            cmd = ["scp","-i",self.ssh_key, "-P", str(port), f"{user}@{host}:{path}", local_dir]
             try:
-                self.vast.copy(src=src, dst=dst)
+                subprocess.run(cmd, check=True)
                 print(f"  pulled {path}")
-            except Exception as e:
+            except subprocess.CalledProcessError as e:
                 print(f"  WARN: failed to pull {path}: {e}")
+
+            
+        # for path in remote_paths:
+        #     src = f"{path}"
+
+            # self.vast.copy(src=src, dst=dst)
+
+
+
+        #     src = f"{instance_id}:{path}"
+        #     dst = f"local:{local_dir}test.txt"
+        #     try:
+        #         res = self.vast.copy(src=src, dst=dst)
+        #         print(f"  pulled {path}")
+        #         print(f"  dst {dst}")
+        #         print(f"  res {res}")
+        #     except Exception as e:
+        #         print(f"  WARN: failed to pull {path}: {e}")
 
     def destroy_instance(self, instance_id: str) -> None:
         self.vast.destroy_instance(id=int(instance_id))
