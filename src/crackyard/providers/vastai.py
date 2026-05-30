@@ -4,6 +4,7 @@ import time
 
 from vastai import VastAI
 
+from crackyard.config import config_path
 from crackyard.providers.base import Provider
 
 _BOOT_ERROR_STATES = {"exited", "unknown", "offline"}
@@ -27,6 +28,7 @@ class VastAIProvider(Provider):
         settings = settings or {}
         self.search_settings = settings.get("search") or {}
         self.create_settings = settings.get("create") or {}
+        # self._template_hash = settings.get("template_hash")
 
     def search_offers(self, gpu_names: list[str] | None, num_gpus: int | None, limit: int) -> list[dict]:
         query_parts = list(self.search_settings.get("filters") or _DEFAULT_FILTERS)
@@ -44,12 +46,20 @@ class VastAIProvider(Provider):
         offers = self.vast.search_offers(type="on-demand", query=query, order=order, limit=limit, no_default=True) or []
         return offers
 
-    def create_instance(self, offer_id: int, template_id: str, label: str) -> str:
+    def create_instance(self, id: int, label: str) -> str:
+        if not isinstance(self.create_settings.get("image"), str) or not self.create_settings.get("image").strip():
+            raise SystemExit(
+                "No image configured for provider 'vastai'. "
+                f"Set image under [vastai.create] in {config_path()}."
+            )
 
+        
+        print(f"Creating instance (id={id}, label={label})...")
         result = self.vast.create_instance(
-            id=offer_id,
-            template_hash=template_id,
+            id=id,
             label=label,
+            image=self.create_settings.get("image"),
+            runtype="ssh_direc ssh_proxy",
             disk=self.create_settings.get("disk", _DEFAULT_DISK),  # GB
         )
         if not result or not result.get("success"):
@@ -59,9 +69,9 @@ class VastAIProvider(Provider):
             raise SystemExit(f"create_instance returned no instance id: {result!r}")
         return str(instance_id)
 
-    def wait_for_ready(self, instance_id: str, timeout: int) -> bool:
+    def wait_for_ready(self, instance_id: str) -> bool:
         spinner = itertools.cycle("|/-\\")
-        deadline = time.time() + timeout
+        deadline = time.time() + self.create_settings.get("timeout", 600)  # seconds
         status = "?"
         start = time.time()
         tty = sys.stdout.isatty()

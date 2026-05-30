@@ -13,8 +13,7 @@ class Provider(ABC):
     @abstractmethod
     def create_instance(
         self,
-        offer_id: int,
-        template_id: str,
+        id: int,
         label: str,
     ) -> str: ...
 

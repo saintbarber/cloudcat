@@ -7,8 +7,6 @@ from crackyard.config import Config, load_config
 from crackyard.providers import PROVIDER_NAMES, get_provider
 from crackyard.utils import estimated_cost, format_table, format_uptime, generate_label
 
-BOOT_TIMEOUT_SECONDS = 600
-
 # GPU families - vast.ai gpu_name values grouped by hashcat-relevant generations.
 # These names may need adjustment if vast.ai changes their naming.
 GPU_FAMILIES: dict[str, list[str]] = {
@@ -20,9 +18,10 @@ GPU_FAMILIES: dict[str, list[str]] = {
 }
 
 
-def cmd_search(args: argparse.Namespace, config: Config) -> None:
-    provider_name = args.provider or config.default_provider
+def cmd_search(args: argparse.Namespace, config: Config) -> None:    
+    provider_name = args.provider or config.provider
     provider = get_provider(provider_name, config)
+
 
     search_settings = config.provider_settings(provider_name).get("search") or {}
     limit = args.limit if args.limit is not None else int(search_settings.get("limit", 20))
@@ -47,7 +46,7 @@ def cmd_search(args: argparse.Namespace, config: Config) -> None:
 
     rows: list[list[str]] = []
     for o in offers:
-        offer_id = str(o.get("id", "-"))
+        id_str = str(o.get("id", "-"))
         gpu = o.get("gpu_name") or "-"
         ram_mb = o.get("gpu_ram")
         ram_str = f"{int(ram_mb) // 1024}GB" if ram_mb else "-"
@@ -55,14 +54,14 @@ def cmd_search(args: argparse.Namespace, config: Config) -> None:
         dph = o.get("dph_total")
         dph_str = f"${float(dph):.3f}" if dph is not None else "-"
         debug = str(o.get("gpu_arch")) or "-"
-        rows.append([offer_id, gpu, ram_str, n, dph_str, debug])
+        rows.append([id_str, gpu, ram_str, n, dph_str, debug])
 
-    headers = ["Offer ID", "GPU Name", "GPU RAM", "Num GPUs", "$/hr", "Debug"]
+    headers = ["ID", "GPU Name", "GPU RAM", "Num GPUs", "$/hr", "Debug"]
     print(format_table(headers, rows))
 
 
 def cmd_list(args: argparse.Namespace, config: Config) -> None:
-    provider_name = args.provider or config.default_provider
+    provider_name = args.provider or config.provider
     provider = get_provider(provider_name, config)
 
     label_prefix = None if args.all else "cy-"
@@ -125,23 +124,22 @@ def _wait_for_sshd(seconds: int = SSH_GRACE_SECONDS) -> None:
 
 
 def cmd_create(args: argparse.Namespace, config: Config) -> None:
-    provider_name = args.provider or config.default_provider
-    template_hash = config.template_hash(provider_name)
+    provider_name = args.provider or config.provider
     # Resolve the SSH key before spending money, so a misconfigured key
     # fails fast instead of after the instance has booted and started billing.
     ssh_key = args.key or config.ssh_key(provider_name)
     provider = get_provider(provider_name, config)
 
     label = generate_label()
-    print(f"Creating instance (offer={args.offer_id}, label={label})...")
+    
     instance_id = provider.create_instance(
-        offer_id=args.offer_id,
-        template_id=template_hash,
+        id=args.id,
         label=label,
     )
+    
     print(f"Instance {instance_id} created. Waiting for boot...")
 
-    ready = provider.wait_for_ready(instance_id, timeout=BOOT_TIMEOUT_SECONDS)
+    ready = provider.wait_for_ready(instance_id)
     if not ready:
         print(
             f"Instance {instance_id} failed to reach 'running' state. "
@@ -167,7 +165,7 @@ def _find_instance_by_label(provider, label: str) -> dict:
 
 
 def cmd_pull(args: argparse.Namespace, config: Config) -> None:
-    provider_name = args.provider or config.default_provider
+    provider_name = args.provider or config.provider
     provider = get_provider(provider_name, config)
 
     match = _find_instance_by_label(provider, args.label)
@@ -178,7 +176,7 @@ def cmd_pull(args: argparse.Namespace, config: Config) -> None:
 
 
 def cmd_ssh(args: argparse.Namespace, config: Config) -> None:
-    provider_name = args.provider or config.default_provider
+    provider_name = args.provider or config.provider
     provider = get_provider(provider_name, config)
 
     match = _find_instance_by_label(provider, args.label)
@@ -198,7 +196,7 @@ def cmd_ssh(args: argparse.Namespace, config: Config) -> None:
 
 
 def cmd_destroy(args: argparse.Namespace, config: Config) -> None:
-    provider_name = args.provider or config.default_provider
+    provider_name = args.provider or config.provider
     provider = get_provider(provider_name, config)
 
     match = _find_instance_by_label(provider, args.label)
@@ -270,10 +268,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_create = subparsers.add_parser("create", help="Create an instance from an offer and SSH in")
     p_create.add_argument(
-        "--offer-id",
+        "--id",
         type=int,
         required=True,
-        help="Offer ID from `crackyard search` output",
+        help="ID from `crackyard search` output",
     )
     p_create.add_argument(
         "--key",

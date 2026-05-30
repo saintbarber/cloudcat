@@ -64,6 +64,8 @@ def _bootstrap_if_missing() -> None:
     if cfg.exists() and creds.exists():
         return
 
+    print("Welcome to crackyard! It looks like this is your first time running the tool, so let's set up some configuration.")
+    print("Initializing config files...")
     config_dir().mkdir(parents=True, exist_ok=True)
     created: list[Path] = []
     if not cfg.exists():
@@ -95,7 +97,7 @@ def _load_toml(path: Path) -> dict:
 
 @dataclass
 class Config:
-    default_provider: str
+    provider: str
     config_data: dict
     credentials_data: dict
 
@@ -104,30 +106,19 @@ class Config:
         return section if isinstance(section, dict) else {}
 
     def api_key(self, provider: str) -> str:
-        env = os.environ.get("VAST_API_KEY") if provider == "vastai" else None
-        if _is_set(env):
-            return env  # type: ignore[return-value]
         creds = self.credentials_data.get(provider)
         key = creds.get("api_key") if isinstance(creds, dict) else None
         if not _is_set(key):
             raise SystemExit(
-                f"No API key configured for provider {provider!r}. "
-                f"Set api_key under [{provider}] in {credentials_path()} "
-                "(or export VAST_API_KEY)."
+                f"No API key configured for provider {provider!r}."
+                f"Set api_key under [{provider}] in {credentials_path()}"
             )
         return key  # type: ignore[return-value]
 
-    def template_hash(self, provider: str) -> str:
-        value = self._provider_config(provider).get("template_hash")
-        if not _is_set(value):
-            raise SystemExit(
-                f"No template_hash configured for provider {provider!r}. "
-                f"Set template_hash under [{provider}] in {config_path()}."
-            )
-        return value  # type: ignore[return-value]
-
     def ssh_key(self, provider: str) -> str:
+
         value = self._provider_config(provider).get("ssh_key")
+
         if not _is_set(value):
             raise SystemExit(
                 f"No ssh_key configured for provider {provider!r}. "
@@ -143,9 +134,9 @@ def load_config() -> Config:
     _bootstrap_if_missing()
     config_data = _load_toml(config_path())
     credentials_data = _load_toml(credentials_path())
-    default_provider = config_data.get("provider") or "vastai"
+    provider = config_data.get("provider") or "vastai"
     return Config(
-        default_provider=default_provider,
+        provider=provider,
         config_data=config_data,
         credentials_data=credentials_data,
     )
