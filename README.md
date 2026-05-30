@@ -211,7 +211,7 @@ crackyard completion zsh     # prints a zsh activation script
 crackyard completion fish    # prints a fish completion script
 ```
 
-The command prints the script to stdout, you decide how to install it. Once active, tab-completing `--label` on `ssh`, `pull`, and `destroy` will offer your live `cy-...` instances (looked up from your provider).
+The command prints the script to stdout, you decide how to install it.
 
 **bash** — append to `~/.bashrc`:
 ```bash
@@ -228,7 +228,7 @@ eval "$(crackyard completion zsh)"
 crackyard completion fish > ~/.config/fish/completions/crackyard.fish
 ```
 
-Open a new shell (or `source` your rc file) and `crackyard ssh --label <TAB>` will list your instances.
+Tab completion works on every argument and flag, you can also tab completed your instances label.
 
 > Tab completion calls the provider API on each tab press, so expect a brief pause the first time. If your credentials aren't configured, completion silently returns nothing rather than spewing errors over your prompt.
 
