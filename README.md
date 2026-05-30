@@ -21,12 +21,12 @@ vast.ai is the first (and currently only) supported provider. Furture plans are 
 - **Pull** files (potfiles, cracked hashes, etc.) off an instance.
 - **Destroy** an instance, optionally pulling files first, so billing stops cleanly.
 - **SSH** full TTY, so hashcat's interactive controls (`s`, `p`, `q`, …) all work.
+- **Tab Completion** - Simply run the completions argument to generate script
 
 ## Requirements
 
 - Python 3.11+
 - A [vast.ai](https://vast.ai) account and API key
-- A vast.ai **template hash** (defines the Docker image/config your instances boot with)
 - An SSH private key registered with vast.ai
 
 ## Installation
@@ -125,13 +125,6 @@ The path of the generated SSH private key goes in `config.toml` as `ssh_key` (se
 
 #TODO
 
-## Template 
-
-Vast.ai can use ready made templates 
-
-https://cloud.vast.ai?ref_id=216561&template_id=837eac2003b5dabd62c2037a2ec1c3b9
-
-
 # Usage
 
 ```
@@ -188,7 +181,7 @@ crackyard ssh --label cy-a3f7
 | `--label` | **(required)** Instance label, e.g. `cy-a3f7` |
 | `--key`, `-i` | SSH private key path (defaults to `ssh_key` in `config.toml`) |
 
-### `pull` — download files without destroying
+### `pull` — download files from instance
 
 ```bash
 crackyard pull --label cy-a3f7 /root/hashcat.potfile /root/cracked.txt
@@ -218,7 +211,7 @@ crackyard completion zsh     # prints a zsh activation script
 crackyard completion fish    # prints a fish completion script
 ```
 
-The command prints the script to stdout — you decide how to install it. Once active, tab-completing `--label` on `ssh`, `pull`, and `destroy` will offer your live `cy-...` instances (looked up from your provider).
+The command prints the script to stdout, you decide how to install it. Once active, tab-completing `--label` on `ssh`, `pull`, and `destroy` will offer your live `cy-...` instances (looked up from your provider).
 
 **bash** — append to `~/.bashrc`:
 ```bash
